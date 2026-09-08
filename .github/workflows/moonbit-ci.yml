@@ -63,10 +63,10 @@ jobs:
       - name: Install dependencies
         run: moon install
 
-      # 执行编译与静态检查（注意：check 不支持 --all 参数）
+      # 执行编译与静态检查（默认检查整个工作区，无需额外参数）
       - name: Run checks
         run: moon check
 
-      # 运行项目中的所有测试用例
+      # 运行项目中的所有测试用例（默认测试整个工作区，无需额外参数）
       - name: Run tests
-        run: moon test --all
+        run: moon test
