@@ -1,0 +1,74 @@
+name: MoonBit CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+# 并发控制：同一分支有新提交时，自动取消旧的运行以节省资源
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # 👇 版本配置（唯一需要修改的地方）
+  # 填写具体版本号（如 "0.1.20240828"）则锁定该版本
+  # 留空 "" 则每次 CI 都安装最新版
+  MOONBIT_VERSION: ""
+
+jobs:
+  check-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 拉取仓库代码
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # 缓存 MoonBit 工具链与依赖目录，避免每次重新下载
+      # 缓存 Key 会根据版本号或 moon.mod.json 的变化自动失效重建
+      - name: Cache MoonBit environment
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.moon
+            ~/.mbti
+          key: moonbit-${{ runner.os }}-${{ env.MOONBIT_VERSION || 'latest' }}-${{ hashFiles('moon.mod.json') }}
+          restore-keys: |
+            moonbit-${{ runner.os }}-${{ env.MOONBIT_VERSION || 'latest' }}-
+
+      # 根据 MOONBIT_VERSION 是否为空，决定安装指定版本还是最新版
+      - name: Set up MoonBit
+        run: |
+          set -euo pipefail
+          if [ -n "$MOONBIT_VERSION" ]; then
+            echo "📌 Installing MoonBit version: $MOONBIT_VERSION"
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- --version "$MOONBIT_VERSION"
+          else
+            echo "🌙 Installing latest MoonBit"
+            curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          fi
+          # 将 MoonBit 二进制路径加入 PATH，供后续步骤使用
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      # 将实际安装的版本写入 CI Summary 页面，方便事后排查问题
+      - name: Record MoonBit version
+        run: |
+          ACTUAL_VERSION=$(moon version --json | jq -r '.version')
+          echo "### 🌙 MoonBit Version: \`$ACTUAL_VERSION\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # 解析并安装项目依赖
+      # 如果项目有 lockfile，建议改为 moon install --frozen
+      - name: Install dependencies
+        run: |
+          moon version --all
+          moon check --all
+
+      # 执行编译与静态检查，这是 CI 的核心验证步骤
+      - name: Run checks
+        run: moon check --all
+
+      # 运行项目中的所有测试用例
+      - name: Run tests
+        run: moon test --all
