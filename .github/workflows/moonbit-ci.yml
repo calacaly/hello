@@ -61,13 +61,11 @@ jobs:
       # 解析并安装项目依赖
       # 如果项目有 lockfile，建议改为 moon install --frozen
       - name: Install dependencies
-        run: |
-          moon version --all
-          moon check --all
+        run: moon install
 
-      # 执行编译与静态检查，这是 CI 的核心验证步骤
+      # 执行编译与静态检查（注意：check 不支持 --all 参数）
       - name: Run checks
-        run: moon check --all
+        run: moon check
 
       # 运行项目中的所有测试用例
       - name: Run tests
