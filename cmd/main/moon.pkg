@@ -1,0 +1,5 @@
+// import {
+//   "calacaly/hello" @lib,
+// }
+
+pkgtype(kind: "executable")
